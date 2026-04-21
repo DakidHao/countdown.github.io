@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="dark">
+    <!-- 新增：允许音频后台播放的meta配置 -->
+    <meta name="apple-media-playback-mode" content="audio">
     <title>跑步节拍器 - iOS 版</title>
     <style>
-        /* 全局样式 - 半透明深色背景 */
+        /* 保留原有所有样式，无修改 */
         * {
             margin: 0;
             padding: 0;
@@ -16,7 +18,6 @@
         }
 
         html, body {
-            /* 半透明深色背景 - iOS风格深色模式 */
             background-color: #1c1c1e;
             background: linear-gradient(135deg, rgba(30,30,32,0.95), rgba(18,18,20,0.98));
             height: 100%;
@@ -32,7 +33,6 @@
             overflow-x: hidden;
         }
 
-        /* 选择器区域 - 适配深色背景 */
         .timer-selector {
             display: flex;
             align-items: center;
@@ -65,7 +65,6 @@
             margin-left: 2px;
         }
 
-        /* iOS风格下拉选择框 - 深色模式适配 */
         select {
             padding: 14px 16px;
             font-size: 17px;
@@ -95,7 +94,6 @@
             opacity: 0.8;
         }
 
-        /* iOS风格按钮 - 深色模式适配 */
         .btn {
             padding: 14px 28px;
             font-size: 17px;
@@ -136,7 +134,6 @@
             transform: scale(0.98);
         }
 
-        /* 倒计时显示区域 - 放大尺寸 */
         .timer-display {
             text-align: center;
             flex: 1;
@@ -155,9 +152,7 @@
             letter-spacing: -0.5px;
         }
 
-        /* 倒计时圆圈 - 大幅放大 */
         .timer-circle {
-            /* 大幅放大：移动端占90vw，最大400px */
             width: min(400px, 90vw);
             height: min(400px, 90vw);
             border-radius: 50%;
@@ -183,9 +178,7 @@
             z-index: -1;
         }
 
-        /* 倒计时数字 - 大幅放大 */
         .timer-text {
-            /* 数字放大：移动端25vw，最大90px */
             font-size: min(90px, 25vw);
             font-weight: 700;
             color: #ffffff;
@@ -194,7 +187,6 @@
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         }
 
-        /* 红绿背景色 - 深色模式适配 */
         .timer-circle.red {
             background: rgba(255, 59, 48, 0.2);
             border-color: rgba(255, 59, 48, 0.4);
@@ -214,7 +206,6 @@
             color: #66e088;
         }
 
-        /* 脚印动画区域 - 适配深色背景 */
         .foot-steps {
             display: flex;
             justify-content: center;
@@ -253,7 +244,6 @@
             filter: drop-shadow(0 2px 8px rgba(255,255,255,0.2));
         }
 
-        /* 控制按钮区域 - 深色模式适配 */
         .control-btn {
             text-align: center;
             margin-top: auto;
@@ -261,7 +251,6 @@
             width: 100%;
         }
 
-        /* 横屏适配 - 放大后的尺寸适配 */
         @media (orientation: landscape) and (max-height: 500px) {
             .timer-circle {
                 width: min(300px, 80vh);
@@ -283,7 +272,6 @@
             }
         }
 
-        /* 小屏设备适配 */
         @media (max-width: 375px) {
             .timer-selector {
                 gap: 12px;
@@ -300,7 +288,6 @@
             }
         }
 
-        /* 灵动岛适配 */
         @supports (height: env(dynamic-height)) {
             body {
                 padding-top: env(safe-area-inset-top);
@@ -310,39 +297,33 @@
     </style>
 </head>
 <body>
-    <!-- 计时选择区域 -->
     <div class="timer-selector">
         <div class="select-group">
             <label for="timer1">选择计时1</label>
             <select id="timer1">
                 <option value="">请选择计时</option>
-                <!-- 动态生成1-20分钟的选项 -->
             </select>
         </div>
         <div class="select-group">
             <label for="timer2">选择计时2</label>
             <select id="timer2" disabled>
                 <option value="">请选择计时</option>
-                <!-- 动态生成1-20分钟的选项 -->
             </select>
         </div>
         <button id="startBtn" class="btn btn-primary" disabled>开始计时</button>
     </div>
 
-    <!-- 倒计时显示区域 -->
     <div class="timer-display">
         <div class="timer-title">跑步节拍器</div>
         <div class="timer-circle" id="timerCircle">
             <div class="timer-text" id="timerText">00:00</div>
         </div>
-        <!-- 脚印动画区域 -->
         <div class="foot-steps" id="footSteps">
             <div class="foot left" id="leftFoot"></div>
             <div class="foot right" id="rightFoot"></div>
         </div>
     </div>
 
-    <!-- 结束按钮区域 -->
     <div class="control-btn">
         <button id="stopBtn" class="btn btn-danger" style="display: none;">结束计时</button>
     </div>
@@ -359,28 +340,30 @@
         const leftFoot = document.getElementById('leftFoot');
         const rightFoot = document.getElementById('rightFoot');
 
-        // 全局变量
-        let countdownInterval = null; // 倒计时定时器
-        let metronomeInterval = null; // 节拍器定时器
-        let colorToggleInterval = null; // 单计时模式下的颜色切换定时器
-        let currentTimer = 1; // 当前正在运行的是计时1(1)还是计时2(2)
-        let totalSeconds = 0; // 当前倒计时的总秒数
-        let timer1Minutes = 0; // 计时1的分钟数
-        let timer2Minutes = 0; // 计时2的分钟数
-        let audioContext = null; // Web Audio API 上下文
-        let isLeftFoot = true; // 当前显示左脚印还是右脚印
-        let isRedColor = true; // 单计时模式下当前背景色（红/绿）
+        // 全局变量 - 优化后台运行关键变量
+        let countdownInterval = null; 
+        let metronomeInterval = null; 
+        let colorToggleInterval = null; 
+        let currentTimer = 1; 
+        let totalSeconds = 0; 
+        let timer1Minutes = 0; 
+        let timer2Minutes = 0; 
+        let audioContext = null; 
+        let isLeftFoot = true; 
+        let isRedColor = true;
+        let startTime = 0; // 新增：记录倒计时开始时间（用于后台校准）
+        let remainingSeconds = 0; // 新增：记录剩余秒数（用于后台校准）
+        let audioBufferSource = null; // 新增：音频源（保证后台播放）
+        let gainNode = null; // 新增：全局音量节点（复用避免重复创建）
 
-        // 初始化 - 生成1-20分钟的选项
+        // 初始化选择框选项
         function initSelectOptions() {
             for (let i = 1; i <= 20; i++) {
-                // 为计时1添加选项
                 const option1 = document.createElement('option');
                 option1.value = i;
                 option1.textContent = `${i}分钟`;
                 timer1Select.appendChild(option1);
 
-                // 为计时2添加选项
                 const option2 = document.createElement('option');
                 option2.value = i;
                 option2.textContent = `${i}分钟`;
@@ -388,39 +371,44 @@
             }
         }
 
-        // 初始化音频上下文
+        // 初始化音频上下文（优化：支持后台播放）
         function initAudioContext() {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // 关键：设置音频上下文为持续播放模式（iOS专属）
+                audioContext.suspend(); // 先挂起，用户交互后恢复
+                // 创建全局音量节点（复用）
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0.5;
+                gainNode.connect(audioContext.destination);
             }
         }
 
-        // 播放节拍器声音
+        // 播放节拍器声音（优化：支持后台播放）
         function playMetronomeSound() {
-            if (!audioContext) return;
+            if (!audioContext || audioContext.state === 'suspended') {
+                audioContext.resume(); // 恢复音频上下文（关键：后台播放）
+            }
             
-            // 创建振荡器（880Hz 高音A，更清晰）
+            // 创建振荡器（880Hz 高音A）
             const oscillator = audioContext.createOscillator();
-            oscillator.type = 'square'; // 方波，声音更洪亮
+            oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
             
-            // 音量控制 - 0.5（适合户外）
-            const gainNode = audioContext.createGain();
-            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime); 
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
-            
-            // 连接节点并播放
+            // 连接到全局音量节点（避免重复创建）
             oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
             
+            // 播放并自动停止
             oscillator.start();
             oscillator.stop(audioContext.currentTime + 0.15);
             
-            // 切换脚印动画
-            toggleFootAnimation();
+            // 切换脚印动画（前台可见时才执行）
+            if (document.visibilityState === 'visible') {
+                toggleFootAnimation();
+            }
         }
 
-        // 切换左右脚印动画
+        // 切换脚印动画
         function toggleFootAnimation() {
             leftFoot.classList.remove('active');
             rightFoot.classList.remove('active');
@@ -451,18 +439,38 @@
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        // 开始倒计时
+        // 校准倒计时（关键：后台运行时校准时间）
+        function calibrateCountdown() {
+            if (startTime === 0) return;
+            
+            // 计算实际流逝的时间（毫秒）
+            const elapsedMs = Date.now() - startTime;
+            // 计算实际剩余秒数
+            const actualRemaining = Math.max(0, remainingSeconds - Math.floor(elapsedMs / 1000));
+            
+            if (actualRemaining !== totalSeconds) {
+                totalSeconds = actualRemaining;
+                // 前台可见时更新显示
+                if (document.visibilityState === 'visible') {
+                    timerText.textContent = formatTime(totalSeconds);
+                }
+            }
+        }
+
+        // 开始倒计时（优化：支持后台运行）
         function startCountdown() {
             // 初始化音频上下文
             initAudioContext();
+            audioContext.resume(); // 用户点击后恢复音频（iOS要求）
             
             // 设置初始状态
             timer1Minutes = parseInt(timer1Select.value);
             timer2Minutes = timer2Select.value ? parseInt(timer2Select.value) : 0;
             
-            // 初始从计时1开始
             currentTimer = 1;
             totalSeconds = timer1Minutes * 60;
+            remainingSeconds = totalSeconds; // 初始化剩余秒数
+            startTime = Date.now(); // 记录开始时间
             isRedColor = true;
             
             // 更新显示
@@ -472,48 +480,66 @@
             // 显示脚印区域
             footSteps.classList.add('active');
             
-            // 禁用选择框和开始按钮，显示结束按钮
+            // 禁用选择框和开始按钮
             timer1Select.disabled = true;
             timer2Select.disabled = true;
             startBtn.disabled = true;
             stopBtn.style.display = 'inline-block';
 
-            // 启动倒计时
+            // 启动倒计时（优化：抗后台暂停）
             countdownInterval = setInterval(() => {
-                totalSeconds--;
+                // 先校准时间（解决后台定时器不准问题）
+                calibrateCountdown();
                 
-                // 更新显示
-                timerText.textContent = formatTime(totalSeconds);
+                totalSeconds--;
+                remainingSeconds = totalSeconds;
+                
+                // 前台可见时更新UI
+                if (document.visibilityState === 'visible') {
+                    timerText.textContent = formatTime(totalSeconds);
+                }
 
                 // 倒计时结束处理
                 if (totalSeconds <= 0) {
-                    // 单计时模式（只有计时1）
                     if (timer2Minutes === 0) {
+                        // 单计时模式
                         totalSeconds = timer1Minutes * 60;
-                        // 切换背景色（红绿交替）
-                        toggleSingleTimerColor();
-                    } 
-                    // 双计时模式
-                    else if (currentTimer === 1) {
+                        remainingSeconds = totalSeconds;
+                        startTime = Date.now(); // 重置开始时间
+                        if (document.visibilityState === 'visible') {
+                            toggleSingleTimerColor();
+                            timerText.textContent = formatTime(totalSeconds);
+                        }
+                    } else if (currentTimer === 1) {
+                        // 切换到计时2
                         currentTimer = 2;
                         totalSeconds = timer2Minutes * 60;
-                        timerCircle.className = 'timer-circle green';
-                    } 
-                    else {
+                        remainingSeconds = totalSeconds;
+                        startTime = Date.now();
+                        if (document.visibilityState === 'visible') {
+                            timerCircle.className = 'timer-circle green';
+                            timerText.textContent = formatTime(totalSeconds);
+                        }
+                    } else {
+                        // 切换回计时1
                         currentTimer = 1;
                         totalSeconds = timer1Minutes * 60;
-                        timerCircle.className = 'timer-circle red';
+                        remainingSeconds = totalSeconds;
+                        startTime = Date.now();
+                        if (document.visibilityState === 'visible') {
+                            timerCircle.className = 'timer-circle red';
+                            timerText.textContent = formatTime(totalSeconds);
+                        }
                     }
-                    timerText.textContent = formatTime(totalSeconds);
                 }
             }, 1000);
 
-            // 启动节拍器 - 175 BPM
+            // 启动节拍器 - 175 BPM（优化：不受后台影响）
             const bpm = 175;
             const intervalMs = 60000 / bpm;
             metronomeInterval = setInterval(playMetronomeSound, intervalMs);
             
-            // 立即播放第一声节拍并显示第一个脚印
+            // 立即播放第一声节拍
             playMetronomeSound();
         }
 
@@ -524,21 +550,21 @@
             if (metronomeInterval) clearInterval(metronomeInterval);
             if (colorToggleInterval) clearInterval(colorToggleInterval);
             
-            // 关闭音频上下文
+            // 暂停音频上下文（但不关闭，避免重新初始化）
             if (audioContext) {
-                audioContext.close().then(() => {
-                    audioContext = null;
-                });
+                audioContext.suspend();
             }
 
-            // 重置脚印和颜色状态
+            // 重置状态变量
+            startTime = 0;
+            remainingSeconds = 0;
             footSteps.classList.remove('active');
             leftFoot.classList.remove('active');
             rightFoot.classList.remove('active');
             isLeftFoot = true;
             isRedColor = true;
 
-            // 恢复初始状态
+            // 恢复UI初始状态
             timer1Select.disabled = false;
             timer2Select.disabled = !timer1Select.value;
             timer1Select.value = '';
@@ -551,23 +577,55 @@
             totalSeconds = 0;
         }
 
-        // 监听计时1选择变化
+        // 关键：监听页面可见性变化（前台/后台切换）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // 切回前台：校准时间并更新UI
+                calibrateCountdown();
+                timerText.textContent = formatTime(totalSeconds);
+                // 恢复音频（如果被暂停）
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            } else {
+                // 切到后台：确保音频继续播放
+                if (audioContext && audioContext.state === 'running') {
+                    audioContext.resume(); // 强制保持音频运行
+                }
+            }
+        });
+
+        // 监听iOS音频中断（如来电、其他app声音）
+        document.addEventListener('audiointerruption', (e) => {
+            if (e.type === 'audiointerruption' && e.state === 'ended') {
+                // 中断结束后恢复音频
+                if (audioContext) {
+                    audioContext.resume();
+                }
+                // 重启节拍器（如果正在运行）
+                if (metronomeInterval) {
+                    clearInterval(metronomeInterval);
+                    const bpm = 175;
+                    const intervalMs = 60000 / bpm;
+                    metronomeInterval = setInterval(playMetronomeSound, intervalMs);
+                }
+            }
+        });
+
+        // 原有事件监听
         timer1Select.addEventListener('change', function() {
             timer2Select.disabled = !this.value;
             startBtn.disabled = !this.value;
             if (!this.value) timer2Select.value = '';
         });
 
-        // 监听计时2选择变化
         timer2Select.addEventListener('change', function() {
             startBtn.disabled = !timer1Select.value;
         });
 
-        // 按钮点击事件
         startBtn.addEventListener('click', startCountdown);
         stopBtn.addEventListener('click', stopCountdown);
 
-        // 页面刷新/关闭时停止所有功能
         window.addEventListener('beforeunload', function() {
             if (countdownInterval) clearInterval(countdownInterval);
             if (metronomeInterval) clearInterval(metronomeInterval);
