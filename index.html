@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="dark">
+    <!-- 禁止iOS自动锁屏 -->
+    <meta name="apple-mobile-web-app-auto-lock" content="never">
     <title>跑步节拍器 - iOS 版</title>
     <style>
         /* 全局样式 - 半透明深色背景 */
@@ -22,6 +24,9 @@
             height: 100%;
             width: 100%;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            /* 防止iOS滚动回弹 */
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
         }
 
         body {
@@ -30,6 +35,9 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
+            /* 强制屏幕渲染 */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
         }
 
         /* 选择器区域 - 适配深色背景 */
@@ -307,9 +315,22 @@
                 padding-bottom: env(safe-area-inset-bottom);
             }
         }
+
+        /* 隐藏防休眠音频元素 */
+        #keepAliveAudio {
+            display: none;
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+    <!-- 防休眠音频元素 -->
+    <audio id="keepAliveAudio" loop muted playsinline></audio>
+
     <!-- 计时选择区域 -->
     <div class="timer-selector">
         <div class="select-group">
@@ -358,29 +379,30 @@
         const footSteps = document.getElementById('footSteps');
         const leftFoot = document.getElementById('leftFoot');
         const rightFoot = document.getElementById('rightFoot');
+        const keepAliveAudio = document.getElementById('keepAliveAudio');
 
         // 全局变量
-        let countdownInterval = null; // 倒计时定时器
-        let metronomeInterval = null; // 节拍器定时器
-        let colorToggleInterval = null; // 单计时模式下的颜色切换定时器
-        let currentTimer = 1; // 当前正在运行的是计时1(1)还是计时2(2)
-        let totalSeconds = 0; // 当前倒计时的总秒数
-        let timer1Minutes = 0; // 计时1的分钟数
-        let timer2Minutes = 0; // 计时2的分钟数
-        let audioContext = null; // Web Audio API 上下文
-        let isLeftFoot = true; // 当前显示左脚印还是右脚印
-        let isRedColor = true; // 单计时模式下当前背景色（红/绿）
+        let countdownInterval = null;
+        let metronomeInterval = null;
+        let colorToggleInterval = null;
+        let currentTimer = 1;
+        let totalSeconds = 0;
+        let timer1Minutes = 0;
+        let timer2Minutes = 0;
+        let audioContext = null;
+        let isLeftFoot = true;
+        let isRedColor = true;
+        let wakeLock = null; // 屏幕常亮锁
+        let keepAliveInterval = null; // 防休眠定时器
 
-        // 初始化 - 生成1-20分钟的选项
+        // 初始化选项
         function initSelectOptions() {
             for (let i = 1; i <= 20; i++) {
-                // 为计时1添加选项
                 const option1 = document.createElement('option');
                 option1.value = i;
                 option1.textContent = `${i}分钟`;
                 timer1Select.appendChild(option1);
 
-                // 为计时2添加选项
                 const option2 = document.createElement('option');
                 option2.value = i;
                 option2.textContent = `${i}分钟`;
@@ -393,34 +415,33 @@
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
         }
 
         // 播放节拍器声音
         function playMetronomeSound() {
             if (!audioContext) return;
             
-            // 创建振荡器（880Hz 高音A，更清晰）
             const oscillator = audioContext.createOscillator();
-            oscillator.type = 'square'; // 方波，声音更洪亮
+            oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
             
-            // 音量控制 - 0.5（适合户外）
             const gainNode = audioContext.createGain();
             gainNode.gain.setValueAtTime(0.5, audioContext.currentTime); 
             gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
             
-            // 连接节点并播放
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
             
             oscillator.start();
             oscillator.stop(audioContext.currentTime + 0.15);
             
-            // 切换脚印动画
             toggleFootAnimation();
         }
 
-        // 切换左右脚印动画
+        // 切换脚印
         function toggleFootAnimation() {
             leftFoot.classList.remove('active');
             rightFoot.classList.remove('active');
@@ -434,7 +455,7 @@
             isLeftFoot = !isLeftFoot;
         }
 
-        // 单计时模式下切换背景色
+        // 切换颜色
         function toggleSingleTimerColor() {
             if (isRedColor) {
                 timerCircle.className = 'timer-circle green';
@@ -444,62 +465,117 @@
             isRedColor = !isRedColor;
         }
 
-        // 格式化时间显示
+        // 格式化时间
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
+        // ==============================================
+        // 核心：保持屏幕常亮（iOS专用）
+        // ==============================================
+        async function keepScreenAwake() {
+            try {
+                // 方案1：Wake Lock API（iOS 16.4+ 原生支持）
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    // 监听页面可见性变化，重新申请锁
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible' && wakeLock) {
+                            navigator.wakeLock.request('screen').then(newLock => {
+                                wakeLock = newLock;
+                            });
+                        }
+                    });
+                }
+            } catch (e) {}
+
+            // 方案2：播放静音音频（兼容所有iOS版本）
+            try {
+                keepAliveAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmImBze5u+wVRwASe7UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+                keepAliveAudio.volume = 0;
+                keepAliveAudio.muted = false;
+                keepAliveAudio.loop = true;
+                keepAliveAudio.play();
+            } catch (e) {}
+
+            // 方案3：定时触摸模拟（防止iOS判定闲置）
+            keepAliveInterval = setInterval(() => {
+                // 模拟轻触事件
+                const event = new TouchEvent('touchstart', {
+                    touches: [new Touch({
+                        identifier: 1,
+                        target: document.body,
+                        clientX: 0,
+                        clientY: 0
+                    })],
+                    passive: true
+                });
+                document.body.dispatchEvent(event);
+            }, 30000);
+        }
+
+        // 释放屏幕常亮
+        async function releaseScreenAwake() {
+            // 释放Wake Lock
+            if (wakeLock) {
+                await wakeLock.release().catch(() => {});
+                wakeLock = null;
+            }
+
+            // 停止防休眠音频
+            if (keepAliveAudio) {
+                keepAliveAudio.pause();
+                keepAliveAudio.src = '';
+            }
+
+            // 清除模拟触摸定时器
+            if (keepAliveInterval) {
+                clearInterval(keepAliveInterval);
+                keepAliveInterval = null;
+            }
+        }
+
         // 开始倒计时
-        function startCountdown() {
-            // 初始化音频上下文
+        async function startCountdown() {
+            // 启动屏幕常亮
+            await keepScreenAwake();
+            
             initAudioContext();
             
-            // 设置初始状态
             timer1Minutes = parseInt(timer1Select.value);
             timer2Minutes = timer2Select.value ? parseInt(timer2Select.value) : 0;
             
-            // 初始从计时1开始
             currentTimer = 1;
             totalSeconds = timer1Minutes * 60;
             isRedColor = true;
             
-            // 更新显示
             timerText.textContent = formatTime(totalSeconds);
             timerCircle.className = 'timer-circle red';
             
-            // 显示脚印区域
             footSteps.classList.add('active');
             
-            // 禁用选择框和开始按钮，显示结束按钮
+            // 禁用控件
             timer1Select.disabled = true;
             timer2Select.disabled = true;
             startBtn.disabled = true;
             stopBtn.style.display = 'inline-block';
 
-            // 启动倒计时
+            // 倒计时
             countdownInterval = setInterval(() => {
                 totalSeconds--;
-                
-                // 更新显示
                 timerText.textContent = formatTime(totalSeconds);
 
-                // 倒计时结束处理
                 if (totalSeconds <= 0) {
-                    // 单计时模式（只有计时1）
                     if (timer2Minutes === 0) {
                         totalSeconds = timer1Minutes * 60;
-                        // 切换背景色（红绿交替）
                         toggleSingleTimerColor();
-                    } 
-                    // 双计时模式
-                    else if (currentTimer === 1) {
+                    } else if (currentTimer === 1) {
                         currentTimer = 2;
                         totalSeconds = timer2Minutes * 60;
                         timerCircle.className = 'timer-circle green';
-                    } 
-                    else {
+                    } else {
                         currentTimer = 1;
                         totalSeconds = timer1Minutes * 60;
                         timerCircle.className = 'timer-circle red';
@@ -508,37 +584,38 @@
                 }
             }, 1000);
 
-            // 启动节拍器 - 175 BPM
+            // 节拍器 175 BPM
             const bpm = 175;
             const intervalMs = 60000 / bpm;
             metronomeInterval = setInterval(playMetronomeSound, intervalMs);
-            
-            // 立即播放第一声节拍并显示第一个脚印
             playMetronomeSound();
         }
 
         // 停止倒计时
-        function stopCountdown() {
-            // 清除所有定时器
+        async function stopCountdown() {
+            // 释放屏幕常亮
+            await releaseScreenAwake();
+
+            // 清除定时器
             if (countdownInterval) clearInterval(countdownInterval);
             if (metronomeInterval) clearInterval(metronomeInterval);
             if (colorToggleInterval) clearInterval(colorToggleInterval);
             
-            // 关闭音频上下文
+            // 关闭音频
             if (audioContext) {
                 audioContext.close().then(() => {
                     audioContext = null;
                 });
             }
 
-            // 重置脚印和颜色状态
+            // 重置状态
             footSteps.classList.remove('active');
             leftFoot.classList.remove('active');
             rightFoot.classList.remove('active');
             isLeftFoot = true;
             isRedColor = true;
 
-            // 恢复初始状态
+            // 恢复界面
             timer1Select.disabled = false;
             timer2Select.disabled = !timer1Select.value;
             timer1Select.value = '';
@@ -551,27 +628,25 @@
             totalSeconds = 0;
         }
 
-        // 监听计时1选择变化
+        // 事件监听
         timer1Select.addEventListener('change', function() {
             timer2Select.disabled = !this.value;
             startBtn.disabled = !this.value;
             if (!this.value) timer2Select.value = '';
         });
 
-        // 监听计时2选择变化
         timer2Select.addEventListener('change', function() {
             startBtn.disabled = !timer1Select.value;
         });
 
-        // 按钮点击事件
         startBtn.addEventListener('click', startCountdown);
         stopBtn.addEventListener('click', stopCountdown);
 
-        // 页面刷新/关闭时停止所有功能
-        window.addEventListener('beforeunload', function() {
+        // 页面关闭时清理
+        window.addEventListener('beforeunload', async function() {
+            await releaseScreenAwake();
             if (countdownInterval) clearInterval(countdownInterval);
             if (metronomeInterval) clearInterval(metronomeInterval);
-            if (colorToggleInterval) clearInterval(colorToggleInterval);
             if (audioContext) audioContext.close();
         });
 
