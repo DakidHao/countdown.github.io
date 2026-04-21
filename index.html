@@ -22,7 +22,6 @@
             height: 100%;
             width: 100%;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-            overflow-x: hidden;
         }
 
         body {
@@ -30,6 +29,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
 
         /* 选择器区域 - 适配深色背景 */
@@ -37,14 +37,14 @@
             display: flex;
             align-items: center;
             gap: 16px;
-            margin: 10px auto;
+            margin: 20px auto;
             width: calc(100% - 32px);
             max-width: 500px;
             flex-wrap: wrap;
             background: rgba(44, 44, 46, 0.8);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            padding: 16px;
+            padding: 20px;
             border-radius: 20px;
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
             border: 1px solid rgba(72, 72, 74, 0.6);
@@ -136,7 +136,7 @@
             transform: scale(0.98);
         }
 
-        /* 倒计时显示区域 - 最大化显示 */
+        /* 倒计时显示区域 - 放大尺寸 */
         .timer-display {
             text-align: center;
             flex: 1;
@@ -144,23 +144,22 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            margin: 10px 0;
-            padding: 0 10px;
+            margin: 20px 0;
         }
 
         .timer-title {
             font-size: 28px;
             font-weight: 600;
             color: #ffffff;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             letter-spacing: -0.5px;
         }
 
-        /* 倒计时圆圈 - 极致放大 */
+        /* 倒计时圆圈 - 大幅放大 */
         .timer-circle {
-            /* 大幅放大：移动端占95vw，最大500px */
-            width: min(500px, 95vw);
-            height: min(500px, 95vw);
+            /* 大幅放大：移动端占90vw，最大400px */
+            width: min(400px, 90vw);
+            height: min(400px, 90vw);
             border-radius: 50%;
             margin: 0 auto;
             display: flex;
@@ -184,16 +183,15 @@
             z-index: -1;
         }
 
-        /* 倒计时数字 - 放大一倍（原基础上×2） */
+        /* 倒计时数字 - 大幅放大 */
         .timer-text {
-            /* 数字极致放大：移动端50vw，最大180px */
-            font-size: min(180px, 50vw);
+            /* 数字放大：移动端25vw，最大90px */
+            font-size: min(90px, 25vw);
             font-weight: 700;
             color: #ffffff;
-            letter-spacing: -4px;
+            letter-spacing: -2px;
             transition: color 0.5s ease;
-            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            line-height: 1;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         }
 
         /* 红绿背景色 - 深色模式适配 */
@@ -212,17 +210,17 @@
         }
 
         .timer-circle.green .timer-text {
-            font-size: min(180px, 50vw);
+            font-size: min(90px, 25vw);
             color: #66e088;
         }
 
-        /* 脚印动画区域 - 放大一倍 */
+        /* 脚印动画区域 - 适配深色背景 */
         .foot-steps {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 80px;
-            margin-top: 40px;
+            gap: 50px;
+            margin-top: 50px;
             opacity: 0;
             transition: opacity 0.3s ease;
         }
@@ -231,10 +229,9 @@
             opacity: 1;
         }
 
-        /* 脚印尺寸放大一倍（原基础上×2） */
         .foot {
-            width: min(140px, 36vw);
-            height: min(140px, 36vw);
+            width: min(70px, 18vw);
+            height: min(70px, 18vw);
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
@@ -253,7 +250,7 @@
         .foot.active {
             opacity: 1;
             transform: scale(1.2);
-            filter: drop-shadow(0 4px 16px rgba(255,255,255,0.3));
+            filter: drop-shadow(0 2px 8px rgba(255,255,255,0.2));
         }
 
         /* 控制按钮区域 - 深色模式适配 */
@@ -265,24 +262,24 @@
         }
 
         /* 横屏适配 - 放大后的尺寸适配 */
-        @media (orientation: landscape) and (max-height: 600px) {
+        @media (orientation: landscape) and (max-height: 500px) {
             .timer-circle {
-                width: min(400px, 90vh);
-                height: min(400px, 90vh);
+                width: min(300px, 80vh);
+                height: min(300px, 80vh);
             }
             
             .timer-text {
-                font-size: min(140px, 40vh);
+                font-size: min(70px, 20vh);
             }
             
             .foot-steps {
-                margin-top: 20px;
-                gap: 40px;
+                margin-top: 30px;
+                gap: 30px;
             }
             
             .foot {
-                width: min(100px, 25vh);
-                height: min(100px, 25vh);
+                width: min(60px, 15vh);
+                height: min(60px, 15vh);
             }
         }
 
@@ -290,7 +287,7 @@
         @media (max-width: 375px) {
             .timer-selector {
                 gap: 12px;
-                padding: 12px;
+                padding: 16px;
             }
             
             .btn {
@@ -299,7 +296,7 @@
             }
             
             .foot-steps {
-                gap: 60px;
+                gap: 40px;
             }
         }
 
@@ -365,6 +362,7 @@
         // 全局变量
         let countdownInterval = null; // 倒计时定时器
         let metronomeInterval = null; // 节拍器定时器
+        let colorToggleInterval = null; // 单计时模式下的颜色切换定时器
         let currentTimer = 1; // 当前正在运行的是计时1(1)还是计时2(2)
         let totalSeconds = 0; // 当前倒计时的总秒数
         let timer1Minutes = 0; // 计时1的分钟数
@@ -524,6 +522,7 @@
             // 清除所有定时器
             if (countdownInterval) clearInterval(countdownInterval);
             if (metronomeInterval) clearInterval(metronomeInterval);
+            if (colorToggleInterval) clearInterval(colorToggleInterval);
             
             // 关闭音频上下文
             if (audioContext) {
@@ -572,6 +571,7 @@
         window.addEventListener('beforeunload', function() {
             if (countdownInterval) clearInterval(countdownInterval);
             if (metronomeInterval) clearInterval(metronomeInterval);
+            if (colorToggleInterval) clearInterval(colorToggleInterval);
             if (audioContext) audioContext.close();
         });
 
